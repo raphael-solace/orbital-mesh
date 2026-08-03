@@ -2,28 +2,39 @@ import { useState, useEffect, useRef } from 'react';
 import { Satellite } from './Satellite';
 
 interface SatelliteManagerProps {
-  filterTopic: string;
+  filterTopics: string[];
   solaceData: any;
   isConnected: boolean;
   onHoverSatellite: (data: any) => void;
+  onSelectSatellite?: (data: any) => void;
+  selectedId?: string | number | null;
   onCountChange?: (count: number) => void;
+  isMobile?: boolean;
+  speed?: number;
+  paused?: boolean;
 }
 
 export function SatelliteManager({
-  filterTopic,
+  filterTopics,
   solaceData,
   isConnected,
   onHoverSatellite,
-  onCountChange
+  onSelectSatellite,
+  selectedId = null,
+  onCountChange,
+  isMobile = false,
+  speed = 1,
+  paused = false
 }: SatelliteManagerProps) {
   const [satelliteMap, setSatelliteMap] = useState<Record<string, any>>({});
   const lastFilterChange = useRef(Date.now());
+  const filterKey = filterTopics.join('|');
 
   useEffect(() => {
     setSatelliteMap({});
     onHoverSatellite(null);
     lastFilterChange.current = Date.now();
-  }, [filterTopic]);
+  }, [filterKey]);
 
   useEffect(() => {
     if (onCountChange) {
@@ -49,7 +60,7 @@ export function SatelliteManager({
       const incomingTopic = typeof solaceData.getDestination === 'function'
         ? solaceData.getDestination().getName()
         : '';
-      if (!isTopicMatch(incomingTopic, filterTopic)) {
+      if (!filterTopics.some((f) => isTopicMatch(incomingTopic, f))) {
         return;
       }
 
@@ -66,17 +77,20 @@ export function SatelliteManager({
     } catch (e) {
       console.error("SatelliteManager Sync Error:", e);
     }
-  }, [solaceData, filterTopic]);
+  }, [solaceData, filterKey]);
 
+  // Level-by-level match with '*' (single level) and '>' (multi-level tail),
+  // matching the broker's semantics and useSolace's client-side filter.
   function isTopicMatch(incoming: string, filter: string): boolean {
     if (filter === "*" || filter.includes(">")) return true;
-    const filterParts = filter.split('/');
-    const noradPart = filterParts[filterParts.length - 1];
-    const providerPart = filterParts[filterParts.length - 2];
 
-    if (noradPart !== "*" && !incoming.endsWith(noradPart)) return false;
-    if (providerPart !== "*" && !incoming.includes(providerPart)) return false;
+    const iParts = incoming.split('/');
+    const fParts = filter.split('/');
+    if (iParts.length !== fParts.length) return false;
 
+    for (let i = 0; i < fParts.length; i++) {
+      if (fParts[i] !== "*" && fParts[i] !== iParts[i]) return false;
+    }
     return true;
   }
 
@@ -84,33 +98,47 @@ export function SatelliteManager({
 
   return (
     <>
-      {Object.entries(satelliteMap).map(([id, satData]) => (
-        <Satellite
-          key={id}
-          name={satData.name}
-          data={satData}
-          onPointerOver={(e) => {
-            e.stopPropagation();
-            onHoverSatellite({
-              ...satData,
-              x: e.clientX,
-              y: e.clientY
-            });
-            document.body.style.cursor = 'pointer';
-          }}
-          onPointerMove={(e) => {
-            onHoverSatellite({
-              ...satData,
-              x: e.clientX,
-              y: e.clientY
-            });
-          }}
-          onPointerOut={() => {
-            onHoverSatellite(null);
-            document.body.style.cursor = 'auto';
-          }}
-        />
-      ))}
+      {Object.entries(satelliteMap).map(([id, satData]) => {
+        const satId = satData.id ?? satData.name ?? satData.noradId ?? id;
+        return (
+          <Satellite
+            key={id}
+            name={satData.name}
+            data={satData}
+            selected={selectedId != null && String(selectedId) === String(satId)}
+            speed={speed}
+            paused={paused}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectSatellite?.({ ...satData, x: e.clientX, y: e.clientY });
+            }}
+            onPointerOver={(e) => {
+              e.stopPropagation();
+              onHoverSatellite({
+                ...satData,
+                x: e.clientX,
+                y: e.clientY
+              });
+              document.body.style.cursor = 'pointer';
+            }}
+            onPointerMove={(e) => {
+              // On touch, don't chase the finger — keep the pinned card stable.
+              if (isMobile) return;
+              onHoverSatellite({
+                ...satData,
+                x: e.clientX,
+                y: e.clientY
+              });
+            }}
+            onPointerOut={() => {
+              // On touch there's no real "out"; the tooltip's close button dismisses it.
+              if (isMobile) return;
+              onHoverSatellite(null);
+              document.body.style.cursor = 'auto';
+            }}
+          />
+        );
+      })}
     </>
   );
 }
