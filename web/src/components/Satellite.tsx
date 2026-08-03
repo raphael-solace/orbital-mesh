@@ -10,9 +10,23 @@ interface SatelliteProps extends React.ComponentPropsWithoutRef<'mesh'> {
     alt: number;
   };
   name: string;
+  /** True when this satellite is the pinned/selected one (trajectory shown). */
+  selected?: boolean;
+  /** Animation speed multiplier from the time controls. */
+  speed?: number;
+  /** When true, freeze position/scale animation. */
+  paused?: boolean;
 }
 
-export function Satellite({ data, onPointerOver, onPointerOut, ...props }: SatelliteProps) {
+export function Satellite({
+  data,
+  onPointerOver,
+  onPointerOut,
+  selected = false,
+  speed = 1,
+  paused = false,
+  ...props
+}: SatelliteProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
 
@@ -22,9 +36,13 @@ export function Satellite({ data, onPointerOver, onPointerOut, ...props }: Satel
 
   useFrame(() => {
     if (meshRef.current) {
-      meshRef.current.position.lerp(targetPosition, 0.1);
+      if (!paused) {
+        // Scale the lerp by speed so faster playback catches up quicker.
+        const posLerp = Math.min(1, 0.1 * speed);
+        meshRef.current.position.lerp(targetPosition, posLerp);
+      }
 
-      const targetScale = hovered ? 1.75 : 1;
+      const targetScale = selected ? 2 : hovered ? 1.75 : 1;
       meshRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.15);
     }
   });
@@ -48,9 +66,9 @@ export function Satellite({ data, onPointerOver, onPointerOut, ...props }: Satel
     >
       <sphereGeometry args={[0.03, 16, 16]} />
       <meshStandardMaterial
-        color={hovered ? "#ffeb3b" : "#00c897"}
-        emissive={hovered ? "#ffeb3b" : "#009670"}
-        emissiveIntensity={hovered ? 5 : 2}
+        color={selected ? "#ffd166" : hovered ? "#ffeb3b" : "#00c897"}
+        emissive={selected ? "#ffd166" : hovered ? "#ffeb3b" : "#009670"}
+        emissiveIntensity={selected ? 6 : hovered ? 5 : 2}
         toneMapped={false}
       />
     </mesh>

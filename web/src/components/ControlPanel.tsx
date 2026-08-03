@@ -23,11 +23,15 @@ interface ControlPanelProps {
   msgRate: number;
   isConnected: boolean;
   solaceData: any;
+  /** Whether the simulation/auto-rotation is paused. */
+  paused?: boolean;
+  /** Toggles the paused state. */
+  onTogglePause?: () => void;
   /** When true, render content only (no fixed-corner positioning); host sheet handles layout. */
   mobile?: boolean;
 }
 
-export function ControlPanel({ onFilterChange, onRegionChange, satelliteCount, msgRate, isConnected, solaceData, mobile = false }: ControlPanelProps) {
+export function ControlPanel({ onFilterChange, onRegionChange, satelliteCount, msgRate, isConnected, solaceData, paused = false, onTogglePause, mobile = false }: ControlPanelProps) {
   const [events, setEvents] = useState<EventLog[]>([]);
 
   const [time, setTime] = useState(new Date());
@@ -250,8 +254,35 @@ export function ControlPanel({ onFilterChange, onRegionChange, satelliteCount, m
         marginTop: '12px',
         display: 'flex',
         gap: '10px',
-        justifyContent: 'space-between'
+        justifyContent: 'space-between',
+        alignItems: 'stretch'
       }}>
+        <button
+          onClick={onTogglePause}
+          aria-label={paused ? 'Play' : 'Pause'}
+          title={paused ? 'Play' : 'Pause'}
+          style={{
+            flex: '0 0 auto',
+            width: '40px',
+            backgroundColor: paused ? 'rgba(0, 200, 151, 0.25)' : 'rgba(0, 200, 151, 0.1)',
+            border: '1px solid #00c897',
+            color: '#00c897',
+            padding: '8px',
+            borderRadius: '4px',
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgba(0, 200, 151, 0.2)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = paused ? 'rgba(0, 200, 151, 0.25)' : 'rgba(0, 200, 151, 0.1)';
+          }}
+        >
+          {paused ? '▶' : '❚❚'}
+        </button>
+
         <button
           onClick={focusISS}
           style={{

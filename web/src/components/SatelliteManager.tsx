@@ -6,8 +6,12 @@ interface SatelliteManagerProps {
   solaceData: any;
   isConnected: boolean;
   onHoverSatellite: (data: any) => void;
+  onSelectSatellite?: (data: any) => void;
+  selectedId?: string | number | null;
   onCountChange?: (count: number) => void;
   isMobile?: boolean;
+  speed?: number;
+  paused?: boolean;
 }
 
 export function SatelliteManager({
@@ -15,8 +19,12 @@ export function SatelliteManager({
   solaceData,
   isConnected,
   onHoverSatellite,
+  onSelectSatellite,
+  selectedId = null,
   onCountChange,
-  isMobile = false
+  isMobile = false,
+  speed = 1,
+  paused = false
 }: SatelliteManagerProps) {
   const [satelliteMap, setSatelliteMap] = useState<Record<string, any>>({});
   const lastFilterChange = useRef(Date.now());
@@ -90,37 +98,47 @@ export function SatelliteManager({
 
   return (
     <>
-      {Object.entries(satelliteMap).map(([id, satData]) => (
-        <Satellite
-          key={id}
-          name={satData.name}
-          data={satData}
-          onPointerOver={(e) => {
-            e.stopPropagation();
-            onHoverSatellite({
-              ...satData,
-              x: e.clientX,
-              y: e.clientY
-            });
-            document.body.style.cursor = 'pointer';
-          }}
-          onPointerMove={(e) => {
-            // On touch, don't chase the finger — keep the pinned card stable.
-            if (isMobile) return;
-            onHoverSatellite({
-              ...satData,
-              x: e.clientX,
-              y: e.clientY
-            });
-          }}
-          onPointerOut={() => {
-            // On touch there's no real "out"; the tooltip's close button dismisses it.
-            if (isMobile) return;
-            onHoverSatellite(null);
-            document.body.style.cursor = 'auto';
-          }}
-        />
-      ))}
+      {Object.entries(satelliteMap).map(([id, satData]) => {
+        const satId = satData.id ?? satData.name ?? satData.noradId ?? id;
+        return (
+          <Satellite
+            key={id}
+            name={satData.name}
+            data={satData}
+            selected={selectedId != null && String(selectedId) === String(satId)}
+            speed={speed}
+            paused={paused}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectSatellite?.({ ...satData, x: e.clientX, y: e.clientY });
+            }}
+            onPointerOver={(e) => {
+              e.stopPropagation();
+              onHoverSatellite({
+                ...satData,
+                x: e.clientX,
+                y: e.clientY
+              });
+              document.body.style.cursor = 'pointer';
+            }}
+            onPointerMove={(e) => {
+              // On touch, don't chase the finger — keep the pinned card stable.
+              if (isMobile) return;
+              onHoverSatellite({
+                ...satData,
+                x: e.clientX,
+                y: e.clientY
+              });
+            }}
+            onPointerOut={() => {
+              // On touch there's no real "out"; the tooltip's close button dismisses it.
+              if (isMobile) return;
+              onHoverSatellite(null);
+              document.body.style.cursor = 'auto';
+            }}
+          />
+        );
+      })}
     </>
   );
 }
